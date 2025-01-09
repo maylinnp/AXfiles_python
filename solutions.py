@@ -3,6 +3,8 @@ from statistics import mean
 from math import exp, log
 
 
+# TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
+# including temperature or adding stuff so that volume and concentartion and ionic strength/salinity changes
 class Solution:
 
     # everything is estimated at 20 deg. C

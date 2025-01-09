@@ -8,19 +8,28 @@
 # eachother).
 import csv
 from itertools import zip_longest
+from exceptions import *
+
+
+class Titration(object):
+    pass
+
+
+# TODO make a class that has all these methods in the generic form,
+# Then child classes that have extra specific methods
+# and use other custom classes to hold the final data so that they don't have anyhting else
 
 
 def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
+    titration = Titration()
     FWD_data = list()
     # # Open filename and extract data
     with open(filename, "r") as datafile:
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
-        print(sample_info)
         # check if FWD
         for row in csvreader:
             if "BWD" in row:
-                print("There is back titration data")
                 BWD_data = list()
                 break
             else:
@@ -29,18 +38,18 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
             for row in csvreader:
                 BWD_data.append(row)
 
-    w0 = sample_info[0]
-    I = sample_info[1]
-    emf0 = sample_info[2]
-    t0 = sample_info[3]
-    CNaOH = sample_info[4]
-    CHCl = sample_info[5]
+    titration.w0 = float(sample_info[0]) / 1000
+    # titration.I = float(sample_info[1])
+    # titration.emf0 = float(sample_info[2])
+    # titration.t0 = float(sample_info[3])  # TODO if v high or low, can be flag
+    titration.CNaOH = float(sample_info[4])
+    titration.CHCl = float(sample_info[5])
     if sample_info[6]:
-        NaOH_ID = sample_info[6]
-        NaOH_batch = NaOH_ID.split("-")[0]
+        titration.NaOH_ID = sample_info[6]
+        NaOH_batch = titration.NaOH_ID.split("-")[0]
     else:
-        NaOH_ID = None
-    HCl_ID = sample_info[7]
+        titration.NaOH_ID = "nan"
+    # HCl_batch = sample_info[7].split("-")[0]
 
     datatypes = {
         "time": str,
@@ -63,9 +72,13 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
             key: [datatypes[key](value) for value in values]
             for key, values in FWD_data_processed.items()
         }
-        print(FWD_data_processed)
+        titration.wHCl = FWD_typecast["weight"][0] / 1000
 
-        # TODO this will always just be weight of acid, so probably doesn't need this complexity, but save and use for later
+    else:
+        raise DataMissing(f"There is no HCl data in {filename}, unable to proceed.")
+        # TODO maybe if there are enough files ahead of it, use all of them and don't count the last one, but I can't keep going bc
+        # need this data for the rest to be valid
+
     if BWD_data:
         BWD_data_processed = dict(zip(datatypes.keys(), map(list, zip(*BWD_data))))
         # type cast
@@ -76,7 +89,16 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
         # take burette name, read in burette_density, grab formula
         volume_corrected = correct_burette_volume(burette, BWD_typecast["volume"])
 
-        NaOH_weight = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
+        titration.w = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
+    else:
+        raise TitrantDataMissing(
+            f"There is no NaOH data in {filename}, unable to proceed."
+        )
+
+    titration.emf = BWD_typecast["emf"]
+    titration.t = BWD_typecast["t_sample"]
+
+    return titration
 
 
 def correct_burette_volume(burette: str, volume: str | list) -> str | list:
@@ -92,6 +114,7 @@ def correct_burette_volume(burette: str, volume: str | list) -> str | list:
 
 
 def v_to_w(volume: list[float], temperature: list[float], solution_id) -> list[float]:
+    # TODO if solution_id is missing, use a generic formula, add flag to all results so poorer flag if not use specific coefficients
     # corrects mL to kg
     x0, x1, x2, x3, x4, x5 = get_coefficients(
         "calibration_data/NaOH_density.csv", "NaOH_id", solution_id
@@ -123,6 +146,9 @@ def get_coefficients(file: str, keyword: str, id: str):
     """
     import pandas as pd
 
+    if id is None or id == "nan":
+        raise CalibrationDataMissing("Solution identifier is invalid")
+
     df = pd.read_csv(file)
     coefficients = df[df[keyword] == id]
 
@@ -134,40 +160,3 @@ def get_coefficients(file: str, keyword: str, id: str):
     x5 = float(coefficients["x5"].values[0])
 
     return x0, x1, x2, x3, x4, x5
-
-
-# Now I have all data, then I need to convert volume and temp into weight titrants
-
-
-#     # # See if there is BWD titration data present
-#     Index = find(contains(Lines,'BWD'))
-#     if isempty(Index)
-#         Index = length(Lines)
-#         A = 0
-#     else
-#         A = 1
-#     end
-#     # # Extract FWD titration data
-#     clear i
-#         R         = strsplit(Lines{2,1},',')
-#         wHCl = str2double(R{6})/1000
-
-#     clear R
-#     # # BWD data, if it exists
-#     if A == 0
-#         emf = nan
-#         t   = nan
-#         w   = nan
-#     else
-#         for i = Index+1:length(Lines)
-#         R         = strsplit(Lines{i,1},',')
-#         emf(i-Index) = str2double(R{2})
-#         t(i-Index)   = str2double(R{3})
-#         V2uncorr(i-Index)   = str2double(R{6})
-#         Bur2T(i-Index)= str2double(R{8})
-#         end
-#     end
-
-#     end
-
-# return [w0,I,emf0,t0,CNaOH,CHCl,wHCl,emf,t,w,NaOH_ID]
