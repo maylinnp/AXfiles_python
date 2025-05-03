@@ -44,7 +44,6 @@ def NaOH_calibration_data(
             sample = KCl()
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
-        print(f"Sample info: {sample_info}")
         # check if FWD
         for row in csvreader:
             if "BWD" in row:
@@ -64,8 +63,8 @@ def NaOH_calibration_data(
     if t0 < 15 or t0 > 30:
         sample.flag = "Q"
 
-    titrant.C = float(sample_info[4])
-    HCl_aliquot.C = float(sample_info[5])
+    titrant.concentration = float(sample_info[4])
+    HCl_aliquot.concentration = float(sample_info[5])
     if sample_info[6]:
         titrant.ID = sample_info[6]
         NaOH_batch = titrant.ID.split("-")[0]
@@ -94,7 +93,7 @@ def NaOH_calibration_data(
             key: [datatypes[key](value) for value in values]
             for key, values in FWD_data_processed.items()
         }
-        HCl_aliquot.w = FWD_typecast["weight"][0] / 1000
+        HCl_aliquot.weight = FWD_typecast["weight"][0] / 1000
 
     else:
         raise DataMissing(f"There is no HCl data in {filename}, unable to proceed.")

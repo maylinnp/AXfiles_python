@@ -284,11 +284,11 @@ class SW(Solution):
         )
 
 
-class titrant:
+class Titrant(Solution):
 
     def __init__(self, name: str, concentration: float):
         self.name = name
-        self.c = concentration
+        self.concentration = concentration
         self.weight = list()
 
     @property
