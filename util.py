@@ -16,5 +16,9 @@ def get_matching_files(folder: str, pattern: str, extension: str) -> list:
     """
     folder_path = Path(folder)
     return sorted(
-        [file for file in folder_path.glob(f"*{pattern}*{extension}") if file.is_file()]
+        [
+            str(file)
+            for file in folder_path.glob(f"*{pattern}*{extension}")
+            if file.is_file()
+        ]
     )
