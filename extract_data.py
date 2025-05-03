@@ -29,21 +29,39 @@ logger.setLevel("DEBUG")
 
 
 def NaOH_calibration_data(
-    filename: str, burette: str = "dosimat 12"
+    filename: str,
+    burette: str = "dosimat 12",
+    sample: Solution = None,
+    titrant: Solution = None,
 ) -> tuple[Solution, Solution, Solution, Titration]:
-    titrant = Solution()
     HCl_aliquot = Solution()
 
     FWD_data = list()
     # # Open filename and extract data
     with open(filename, "r") as datafile:
-        # assumes calibration solution type found in file name
-        if "nacl" in filename.lower():
-            sample = NaCl()
-        elif "kcl" in filename.lower():
-            sample = KCl()
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
+        # if first time initializing sample
+        if not sample:
+            # assumes calibration solution type found in file name
+            if "nacl" in filename.lower():
+                sample = NaCl()
+            elif "kcl" in filename.lower():
+                sample = KCl()
+
+            sample.w0 = float(sample_info[0]) / 1000
+            sample.I = float(sample_info[1])
+            sample.emf0 = float(sample_info[2])
+
+        if not titrant:
+            titrant = Solution()
+            if sample_info[6]:
+                titrant.ID = sample_info[6].split("-")[0]
+                # TODO missing batch/bag number
+            else:
+                titrant.ID = "nan"
+            # HCl_batch = sample_info[7].split("-")[0]
+
         # check if FWD
         for row in csvreader:
             if "BWD" in row:
@@ -55,9 +73,6 @@ def NaOH_calibration_data(
             for row in csvreader:
                 BWD_data.append(row)
 
-    sample.w0 = float(sample_info[0]) / 1000
-    sample.I = float(sample_info[1])
-    sample.emf0 = float(sample_info[2])
     t0 = float(sample_info[3])
     # flag sample as Q (questionable) if temperature very out of range
     if t0 < 15 or t0 > 30:
@@ -66,12 +81,6 @@ def NaOH_calibration_data(
     titrant.concentration = float(sample_info[4])
     # TODO problem with titrant and id assignement here, plus concnetration is just approx and will be overwritten by calibration
     HCl_aliquot.concentration = float(sample_info[5])
-    if sample_info[6]:
-        titrant.ID = sample_info[6]
-        NaOH_batch = titrant.ID.split("-")[0]
-    else:
-        titrant.ID = "nan"
-    # HCl_batch = sample_info[7].split("-")[0]
 
     datatypes = {
         "time": str,
@@ -111,7 +120,7 @@ def NaOH_calibration_data(
         # take burette name, read in burette_density, grab formula
         volume_corrected = correct_burette_volume(burette, BWD_typecast["volume"])
 
-        titration_weights = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
+        titration_weights = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], titrant.ID)
     else:
         raise TitrantDataMissing(
             f"There is no NaOH data in {filename}, unable to proceed."
@@ -136,9 +145,15 @@ def correct_burette_volume(burette: str, volume: Union[str, list]) -> Union[str,
     ]
 
 
-def v_to_w(volume: list[float], temperature: list[float], solution_id) -> list[float]:
+def v_to_w(
+    volume: list[float], temperature: list[float], solution_id: str
+) -> list[float]:
     # TODO if solution_id is missing, use a generic formula, add flag to all results so poorer flag if not use specific coefficients
     # corrects mL to kg
+    # check if solution_id has data
+
+    if "-" in solution_id:
+        solution_id = solution_id.split("-")[0]
     x0, x1, x2, x3, x4, x5 = get_coefficients(
         "calibration_data/NaOH_density.csv", "NaOH_id", solution_id
     )
@@ -167,7 +182,6 @@ def get_coefficients(file: str, keyword: str, id: str):
     Returns:
         float: coefficients appropriate for a x0 + x1 * y + x2 * (y**2) + x3 * (y**3) + x4 * (y**4) + x5 * (y**5) equation
     """
-
     if id is None or id == "nan":
         raise CalibrationDataMissing("Solution identifier is invalid")
 

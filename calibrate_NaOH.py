@@ -73,19 +73,45 @@ class CalibrateNaOH:
         NaOH_concentration = []
         # will raise exception if invalid inputs
         calibration_files = self._process_inputs()
-        HCl_neutr_weight, E0_est, NaOH_conc_est = self.calculate_first_titr_data(
-            calibration_files[0]
+        # process first titration
+        HCl_neutr_weight, E0_est, NaOH_conc_est = self.process_titration(
+            calibration_files[0], first=True
         )
         e0.append(E0_est)
         NaOH_concentration.append(NaOH_conc_est)
-
-    def calculate_first_titr_data(self, titration_file, HCl_neutr_weight: float = 0):
-        logger.debug(f"First file: {titration_file}")
-        titrant, sample, HCl_aliquot, titration_data = NaOH_calibration_data(
-            titration_file
+        # process remaining titrations
+        for file in calibration_files[1:]:
+            HCl_neutr_weight, E0_est, NaOH_conc_est = self.process_titration(
+                file, HCl_neutr_weight
+            )
+            e0.append(E0_est)
+            NaOH_concentration.append(NaOH_conc_est)
+        # disregard first titration
+        NaOH_conc_mean = np.mean(NaOH_concentration[1:])
+        NaOH_conc_std_percent = np.std(NaOH_concentration[1:]) / NaOH_conc_mean * 100
+        logger.info(
+            f"""
+              The mean NaOH concentration estimated from this titration is:\n
+              {NaOH_conc_mean:.4g} mol/kg-sol, with a standard deviation of
+              +/-{NaOH_conc_std_percent:.2g} %"""
         )
-        gran_function = (sample.w0 + HCl_aliquot.weight) * np.exp(
-            titration_data.emf / sample.k
+
+    def process_titration(
+        self, titration_file, HCl_neutr_weight: float = 0, first=False
+    ):
+        logger.debug(f"Processing file: {titration_file}")
+        if first:
+            titrant, sample, HCl_aliquot, titration_data = NaOH_calibration_data(
+                titration_file
+            )
+            self.sample = sample
+            self.titrant = titrant
+        else:
+            _, _, HCl_aliquot, titration_data = NaOH_calibration_data(
+                titration_file, sample=self.sample, titrant=self.titrant
+            )
+        gran_function = (self.sample.w0 + HCl_aliquot.weight) * np.exp(
+            titration_data.emf / self.sample.k
         )
         # grab only good data
         F1_gran = gran_function[: np.count_nonzero(gran_function > 100)]
@@ -97,7 +123,9 @@ class CalibrateNaOH:
         goodness_of_fit = r_value**2
         equivalence_weight = -slope / intercept
         NaOH_conc_est = (
-            equivalence_weight * HCl_aliquot.concentration * HCl_aliquot.weight
+            equivalence_weight
+            * HCl_aliquot.concentration
+            * (HCl_aliquot.weight - HCl_neutr_weight)
         )
         logger.info(
             f"Calculated NaOH concentration from the first titration: {NaOH_conc_est} mol/kg-sol"
@@ -113,15 +141,18 @@ class CalibrateNaOH:
         # E0 = E - k*log(concentration) at each titration point
         E0_est = np.mean(
             titration_data.emf[: len(F1_gran)]
-            - sample.k
+            - self.sample.k
             * np.log(
                 (
                     HCl_aliquot.weight * HCl_aliquot.concentration
                     - F1_weight * NaOH_conc_est
                 )
-                / (sample.w0 + F1_weight)
+                / (self.sample.w0 + F1_weight)
             )
         )
+        # new sample weight is original + total titrant added + acid aliquot
+        self.sample.w0 = self.sample.w0 + HCl_aliquot.weight + titration_data.weight[-1]
+
         logger.info(f"Etimated E0 from the first titration is {E0_est} V")
         return HCl_neutr_weight, E0_est, NaOH_conc_est
 
