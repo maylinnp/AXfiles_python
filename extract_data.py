@@ -9,10 +9,18 @@
 import csv
 from exceptions import *
 from typing import Union
+import pandas as pd
+import logging
+from solutions import Solution
+import statistics
+
+logger = logging.getLogger(__name__)
+
+logger.setLevel("DEBUG")
 
 
-class Solution(object):
-    pass
+# class Solution(object):
+#     pass
 
 
 # TODO make a class that has all these methods in the generic form,
@@ -20,7 +28,9 @@ class Solution(object):
 # and use other custom classes to hold the final data so that they don't have anyhting else
 
 
-def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
+def NaOH_calibration_data(
+    filename: str, burette: str = "dosimat 12"
+) -> tuple[Solution, Solution, Solution]:
     titrant = Solution()
     HCl_aliquot = Solution()
     sample = Solution()
@@ -30,6 +40,7 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
     with open(filename, "r") as datafile:
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
+        print(f"Sample info: {sample_info}")
         # check if FWD
         for row in csvreader:
             if "BWD" in row:
@@ -55,7 +66,7 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
         titrant.ID = sample_info[6]
         NaOH_batch = titrant.ID.split("-")[0]
     else:
-        titrant.OD = "nan"
+        titrant.ID = "nan"
     # HCl_batch = sample_info[7].split("-")[0]
 
     datatypes = {
@@ -103,7 +114,7 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
         )
 
     sample.emf = BWD_typecast["emf"]
-    sample.t = BWD_typecast["t_sample"]
+    sample.t = statistics.fmean(BWD_typecast["t_sample"])
 
     return titrant, sample, HCl_aliquot
 
@@ -151,7 +162,6 @@ def get_coefficients(file: str, keyword: str, id: str):
     Returns:
         float: coefficients appropriate for a x0 + x1 * y + x2 * (y**2) + x3 * (y**3) + x4 * (y**4) + x5 * (y**5) equation
     """
-    import pandas as pd
 
     if id is None or id == "nan":
         raise CalibrationDataMissing("Solution identifier is invalid")
