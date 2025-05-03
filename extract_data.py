@@ -7,11 +7,11 @@
 # the corresponding line recorded (i.e., volume and pH value correspond to
 # eachother).
 import csv
-from itertools import zip_longest
 from exceptions import *
+from typing import Union
 
 
-class Titration(object):
+class Solution(object):
     pass
 
 
@@ -21,7 +21,10 @@ class Titration(object):
 
 
 def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
-    titration = Titration()
+    titrant = Solution()
+    HCl_aliquot = Solution()
+    sample = Solution()
+
     FWD_data = list()
     # # Open filename and extract data
     with open(filename, "r") as datafile:
@@ -38,17 +41,21 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
             for row in csvreader:
                 BWD_data.append(row)
 
-    titration.w0 = float(sample_info[0]) / 1000
-    # titration.I = float(sample_info[1])
-    # titration.emf0 = float(sample_info[2])
-    # titration.t0 = float(sample_info[3])  # TODO if v high or low, can be flag
-    titration.CNaOH = float(sample_info[4])
-    titration.CHCl = float(sample_info[5])
+    sample.w0 = float(sample_info[0]) / 1000
+    sample.I = float(sample_info[1])
+    sample.emf0 = float(sample_info[2])
+    t0 = float(sample_info[3])
+    # flag sample as Q (questionable) if temperature very out of range
+    if t0 < 15 or t0 > 30:
+        sample.flag = "Q"
+
+    titrant.C = float(sample_info[4])
+    HCl_aliquot.C = float(sample_info[5])
     if sample_info[6]:
-        titration.NaOH_ID = sample_info[6]
-        NaOH_batch = titration.NaOH_ID.split("-")[0]
+        titrant.ID = sample_info[6]
+        NaOH_batch = titrant.ID.split("-")[0]
     else:
-        titration.NaOH_ID = "nan"
+        titrant.OD = "nan"
     # HCl_batch = sample_info[7].split("-")[0]
 
     datatypes = {
@@ -72,7 +79,7 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
             key: [datatypes[key](value) for value in values]
             for key, values in FWD_data_processed.items()
         }
-        titration.wHCl = FWD_typecast["weight"][0] / 1000
+        HCl_aliquot.w = FWD_typecast["weight"][0] / 1000
 
     else:
         raise DataMissing(f"There is no HCl data in {filename}, unable to proceed.")
@@ -89,19 +96,19 @@ def NaOH_calibration_data(filename: str, burette: str = "dosimat 12") -> dict:
         # take burette name, read in burette_density, grab formula
         volume_corrected = correct_burette_volume(burette, BWD_typecast["volume"])
 
-        titration.w = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
+        titrant.w = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
     else:
         raise TitrantDataMissing(
             f"There is no NaOH data in {filename}, unable to proceed."
         )
 
-    titration.emf = BWD_typecast["emf"]
-    titration.t = BWD_typecast["t_sample"]
+    sample.emf = BWD_typecast["emf"]
+    sample.t = BWD_typecast["t_sample"]
 
-    return titration
+    return titrant, sample, HCl_aliquot
 
 
-def correct_burette_volume(burette: str, volume: str | list) -> str | list:
+def correct_burette_volume(burette: str, volume: Union[str, list]) -> Union[str, list]:
 
     x0, x1, x2, x3, x4, x5 = get_coefficients(
         "calibration_data/burette_density.csv", "burette_id", burette
