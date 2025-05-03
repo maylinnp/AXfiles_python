@@ -1,0 +1,103 @@
+import argparse
+from exceptions import CalibrationDataMissing
+import os, sys
+from util import get_matching_files
+from extract_data import NaOH_calibration_data
+import logging
+from solutions import Solution
+
+logger = logging.getLogger(__name__)
+logger.setLevel("DEBUG")
+
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument(
+    "-p",
+    "--path",
+    help="path to NaOH calibration data files",
+    default=argparse.SUPPRESS,
+)
+parser.add_argument(
+    "-id",
+    "--titration_id",
+    help="batch identifier that will uniquely identify all files that are used to calculate avg cNaOH",
+    default=argparse.SUPPRESS,
+)
+parser.add_argument(
+    "-ext",
+    "--file_extension",
+    help="optional file extension if not using csv",
+    default="csv",
+)
+parser.add_argument(
+    "-hcl",
+    "--hcl_concentration",
+    help="optional HCl concentration, if e.g., incorrect information was entered during calibration (or missing). Will be treated as mol/kg-sol",
+)
+
+args = parser.parse_args()
+
+
+class CalibrateNaOH:
+    def __init__(
+        self,
+        path: str,
+        titration_id: str,
+        hcl_concentration: float = None,
+        file_extension: str = None,
+    ):
+        print("Let's get calibrating!\n\n")
+        # initialize
+        self.path = path
+        self.titration_id = titration_id
+        self.hcl_concentration = hcl_concentration
+        self.file_extension = file_extension
+
+    def calibrate(self):
+        # will raise exception if invalid inputs
+        calibration_files = self._process_inputs()
+        self.calculate_first_titr_data(calibration_files[0])
+
+    def calculate_first_titr_data(self, titration_file):
+        print(f"First file: {titration_file}")
+        titrant, sample, HCl_aliquot = NaOH_calibration_data(titration_file)
+        print(sample.K1)
+        print(sample.K2)
+
+    def _process_inputs(self) -> list:
+        """
+        Checks inputs and makes list of files specified by
+        input from path, pattern, and extension
+
+        Raises:
+            CalibrationDataMissing
+
+        Returns:
+            list: valid files
+        """
+        if self.hcl_concentration:
+            logger.info(
+                "Ready to overwrite file HCl concentration with this: ",
+                self.hcl_concentration,
+            )
+
+        calibration_files = get_matching_files(
+            self.path, self.titration_id, self.file_extension
+        )
+        # catch if only one calibration file
+        if not len(calibration_files) > 1:
+            raise CalibrationDataMissing(
+                "Need at least two calibration files to proceed, please check your inputs."
+            )
+        else:
+            return calibration_files
+
+
+try:
+    calibration = CalibrateNaOH(**vars(args))
+except TypeError as e:
+    logger.critical(f"Error in command line inputs: {e}")
+    sys.exit(1)
+
+calibration.calibrate()
