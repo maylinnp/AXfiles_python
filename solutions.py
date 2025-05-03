@@ -1,6 +1,8 @@
 # base class for any solution
 from statistics import mean
 from math import exp, log
+from typing import Union
+import numpy as np
 
 
 # TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
@@ -9,7 +11,11 @@ class Solution:
 
     # everything is estimated at 20 deg. C
     def __init__(
-        self, type: str = "solution", I: float = 0, temp: float = 20, id: str = None
+        self,
+        type: str = "solution",
+        I: float = 0,
+        temp: float = 20,
+        id: str = None,
     ):
         self.type = type
         self.I = I
@@ -23,7 +29,7 @@ class Solution:
 
     @property
     def k(self):
-        return 8.31451 * mean(self.T) / 96484.56
+        return 8.31451 * self.T / 96484.56
 
     @property
     def K1(self):
@@ -276,3 +282,31 @@ class SW(Solution):
             + (17.27039 / self.T + 2.81197) * self.S**0.5
             + (-44.99486 / self.T - 0.09984) * self.S
         )
+
+
+class titrant:
+
+    def __init__(self, name: str, concentration: float):
+        self.name = name
+        self.c = concentration
+        self.weight = list()
+
+    @property
+    def density(self):
+        # this should read from a datasheet the first time, and save the density equation in memory
+
+        a = 0
+        b = 0
+        c = 1
+        d = 0
+
+        return lambda weight: weight * a**3 + weight * b**2 + weight * c + d
+
+
+class Titration:
+    def __init__(
+        self, weight: list[float], emf: list[float], temp: Union[float, list[float]]
+    ):
+        self.weight = np.array(weight)
+        self.emf = np.array(emf)
+        self.temp = np.array(temp)

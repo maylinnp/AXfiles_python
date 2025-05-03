@@ -4,7 +4,9 @@ import os, sys
 from util import get_matching_files
 from extract_data import NaOH_calibration_data
 import logging
-from solutions import Solution
+from solutions import *
+import math
+import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -61,9 +63,13 @@ class CalibrateNaOH:
 
     def calculate_first_titr_data(self, titration_file):
         print(f"First file: {titration_file}")
-        titrant, sample, HCl_aliquot = NaOH_calibration_data(titration_file)
-        print(sample.K1)
-        print(sample.K2)
+        titrant, sample, HCl_aliquot, titration_data = NaOH_calibration_data(
+            titration_file
+        )
+        gran_function = (sample.w0 + HCl_aliquot.w) * np.exp(
+            titration_data.emf / sample.k
+        )
+        print(f"Gran function: {gran_function}")
 
     def _process_inputs(self) -> list:
         """

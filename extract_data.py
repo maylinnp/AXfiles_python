@@ -11,7 +11,7 @@ from exceptions import *
 from typing import Union
 import pandas as pd
 import logging
-from solutions import Solution
+from solutions import *
 import statistics
 
 logger = logging.getLogger(__name__)
@@ -30,14 +30,18 @@ logger.setLevel("DEBUG")
 
 def NaOH_calibration_data(
     filename: str, burette: str = "dosimat 12"
-) -> tuple[Solution, Solution, Solution]:
+) -> tuple[Solution, Solution, Solution, Titration]:
     titrant = Solution()
     HCl_aliquot = Solution()
-    sample = Solution()
 
     FWD_data = list()
     # # Open filename and extract data
     with open(filename, "r") as datafile:
+        # assumes calibration solution type found in file name
+        if "nacl" in filename.lower():
+            sample = NaCl()
+        elif "kcl" in filename.lower():
+            sample = KCl()
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
         print(f"Sample info: {sample_info}")
@@ -107,16 +111,17 @@ def NaOH_calibration_data(
         # take burette name, read in burette_density, grab formula
         volume_corrected = correct_burette_volume(burette, BWD_typecast["volume"])
 
-        titrant.w = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
+        titration_weights = v_to_w(volume_corrected, BWD_typecast["t_NaOH"], NaOH_batch)
     else:
         raise TitrantDataMissing(
             f"There is no NaOH data in {filename}, unable to proceed."
         )
 
-    sample.emf = BWD_typecast["emf"]
-    sample.t = statistics.fmean(BWD_typecast["t_sample"])
+    titration_emf = BWD_typecast["emf"]
+    titration_temp = BWD_typecast["t_sample"]
+    titration_data = Titration(titration_weights, titration_emf, titration_temp)
 
-    return titrant, sample, HCl_aliquot
+    return titrant, sample, HCl_aliquot, titration_data
 
 
 def correct_burette_volume(burette: str, volume: Union[str, list]) -> Union[str, list]:
