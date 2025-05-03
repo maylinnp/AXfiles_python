@@ -69,11 +69,17 @@ class CalibrateNaOH:
         self.file_extension = file_extension
 
     def calibrate(self):
+        e0 = []
+        NaOH_concentration = []
         # will raise exception if invalid inputs
         calibration_files = self._process_inputs()
-        self.calculate_first_titr_data(calibration_files[0])
+        HCl_neutr_weight, E0_est, NaOH_conc_est = self.calculate_first_titr_data(
+            calibration_files[0]
+        )
+        e0.append(E0_est)
+        NaOH_concentration.append(NaOH_conc_est)
 
-    def calculate_first_titr_data(self, titration_file):
+    def calculate_first_titr_data(self, titration_file, HCl_neutr_weight: float = 0):
         logger.debug(f"First file: {titration_file}")
         titrant, sample, HCl_aliquot, titration_data = NaOH_calibration_data(
             titration_file
@@ -90,32 +96,34 @@ class CalibrateNaOH:
         slope, intercept, r_value, p_value, std_err = linregress(F1_weight, F1_gran)
         goodness_of_fit = r_value**2
         equivalence_weight = -slope / intercept
-        NaOH_concentration = (
+        NaOH_conc_est = (
             equivalence_weight * HCl_aliquot.concentration * HCl_aliquot.weight
         )
         logger.info(
-            f"Calculated NaOH concentration from the first titration: {NaOH_concentration} mol/kg-sol"
+            f"Calculated NaOH concentration from the first titration: {NaOH_conc_est} mol/kg-sol"
         )
-        # calculate how far past equivalence point it was titrated, which will be subtracted from the next titration
-        NaOH_excess = (
-            titration_data.weight[-1] - (-intercept / slope)
-        ) * NaOH_concentration
+
         # calculate how much of the titrant in next round will be used to neutralize the excess NaOH
-        HCl_neutr_weight = NaOH_excess / HCl_aliquot.concentration
+        HCl_neutr_weight = (
+            (titration_data.weight[-1] - (-intercept / slope))
+            * NaOH_conc_est
+            / HCl_aliquot.concentration
+        )
         # estimate E0 from the data for better estimates next round(s)
-        # E0 = E - k*log(concentration)
+        # E0 = E - k*log(concentration) at each titration point
         E0_est = np.mean(
             titration_data.emf[: len(F1_gran)]
             - sample.k
             * np.log(
                 (
                     HCl_aliquot.weight * HCl_aliquot.concentration
-                    - F1_weight * NaOH_concentration
+                    - F1_weight * NaOH_conc_est
                 )
                 / (sample.w0 + F1_weight)
             )
         )
         logger.info(f"Etimated E0 from the first titration is {E0_est} V")
+        return HCl_neutr_weight, E0_est, NaOH_conc_est
 
     def _process_inputs(self) -> list:
         """

@@ -64,6 +64,7 @@ def NaOH_calibration_data(
         sample.flag = "Q"
 
     titrant.concentration = float(sample_info[4])
+    # TODO problem with titrant and id assignement here, plus concnetration is just approx and will be overwritten by calibration
     HCl_aliquot.concentration = float(sample_info[5])
     if sample_info[6]:
         titrant.ID = sample_info[6]
