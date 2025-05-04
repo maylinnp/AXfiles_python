@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-def get_matching_files(folder: str, pattern: str, extension: str) -> list:
+def get_matching_files(folder: str, pattern: str, extension: str) -> list[str]:
     """
     Method that gets all files in a folder with a given unifying pattern and
     specific extension. Will return a list sorted by filename

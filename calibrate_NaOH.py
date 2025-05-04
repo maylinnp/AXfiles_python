@@ -92,8 +92,9 @@ class CalibrateNaOH:
         logger.info(
             f"""
               The mean NaOH concentration estimated from this titration is:\n
-              {NaOH_conc_mean:.4g} mol/kg-sol, with a standard deviation of
-              +/-{NaOH_conc_std_percent:.2g} %"""
+              {NaOH_conc_mean:.5g} mol/kg-sol, with a standard deviation of
+              +/-{NaOH_conc_std_percent:.2g} %.
+              Update the value in the NaOH_summary file manually if needed."""
         )
 
     def process_titration(

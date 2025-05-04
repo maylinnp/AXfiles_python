@@ -7,18 +7,22 @@ import numpy as np
 
 # TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
 # including temperature or adding stuff so that volume and concentartion and ionic strength/salinity changes
+# TODO add all constants to all relevant solutions
+# TODO check if I am able to calc stuff on the fly by supplying a new temperature
+
+
 class Solution:
 
     # everything is estimated at 20 deg. C
     def __init__(
         self,
         type: str = "solution",
-        I: float = 0,
+        salt: float = 0,
         temp: float = 20,
         id: str = None,
     ):
         self.type = type
-        self.I = I
+        self.salt = salt
         self.id = id
         if temp > 200:
             self.T = temp
@@ -26,6 +30,8 @@ class Solution:
         else:
             self.t = temp
             self.T = self.t + 273.15
+
+        flag = "A"
 
     @property
     def k(self):
