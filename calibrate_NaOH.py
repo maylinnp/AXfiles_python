@@ -136,7 +136,7 @@ class CalibrateNaOH:
         # estimate E0 from the data for better estimates next round(s)
         # E0 = E - k*log(concentration) at each titration point
         E0_est = np.mean(
-            titration_data.emf[: len(gran_data.F1)]
+            titration_data.emf[gran_data.indices[0] : gran_data.indices[1]]
             - self.sample.k
             * np.log(
                 (
