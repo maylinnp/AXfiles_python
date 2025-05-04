@@ -1,13 +1,14 @@
 import argparse
 from exceptions import CalibrationDataMissing
 import os, sys
-from util import get_matching_files
+from util import *
 from extract_data import NaOH_calibration_data
 import logging
 from solutions import *
 import math
 import numpy as np
 from scipy.stats import linregress
+from maths import Gran_F1
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -111,18 +112,12 @@ class CalibrateNaOH:
             _, _, HCl_aliquot, titration_data = NaOH_calibration_data(
                 titration_file, sample=self.sample, titrant=self.titrant
             )
-        gran_function = (self.sample.w0 + HCl_aliquot.weight) * np.exp(
-            titration_data.emf / self.sample.k
+        w0_gran = self.sample.w0 + HCl_aliquot.weight
+        gran_data = Gran_F1(
+            titration_data.weight, titration_data.emf, self.sample.T, w0_gran
         )
-        # grab only good data
-        F1_gran = gran_function[: np.count_nonzero(gran_function > 100)]
-        F1_weight = titration_data.weight[: len(F1_gran)]
-        logger.info(
-            f"Gran data in valid range uses {len(F1_gran)} of the total {len(gran_function)} points from the titration"
-        )
-        slope, intercept, r_value, p_value, std_err = linregress(F1_weight, F1_gran)
-        goodness_of_fit = r_value**2
-        equivalence_weight = -slope / intercept
+
+        equivalence_weight = -gran_data.slope / gran_data.intercept
         NaOH_conc_est = (
             equivalence_weight
             * HCl_aliquot.conc
@@ -134,18 +129,21 @@ class CalibrateNaOH:
 
         # calculate how much of the titrant in next round will be used to neutralize the excess NaOH
         HCl_neutr_weight = (
-            (titration_data.weight[-1] - (-intercept / slope))
+            (titration_data.weight[-1] - (-gran_data.intercept / gran_data.slope))
             * NaOH_conc_est
             / HCl_aliquot.conc
         )
         # estimate E0 from the data for better estimates next round(s)
         # E0 = E - k*log(concentration) at each titration point
         E0_est = np.mean(
-            titration_data.emf[: len(F1_gran)]
+            titration_data.emf[: len(gran_data.F1)]
             - self.sample.k
             * np.log(
-                (HCl_aliquot.weight * HCl_aliquot.conc - F1_weight * NaOH_conc_est)
-                / (self.sample.w0 + F1_weight)
+                (
+                    HCl_aliquot.weight * HCl_aliquot.conc
+                    - gran_data.F1_mass * NaOH_conc_est
+                )
+                / (self.sample.w0 + gran_data.F1_mass)
             )
         )
         # new sample weight is original + total titrant added + acid aliquot
