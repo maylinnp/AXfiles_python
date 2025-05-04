@@ -8,3 +8,7 @@ class CalibrationDataMissing(DataMissing):
 
 class TitrantDataMissing(DataMissing):
     pass
+
+
+class TitrationDataMissing(DataMissing):
+    pass
