@@ -31,7 +31,11 @@ class Solution:
             self.t = temp
             self.T = self.t + 273.15
 
-        flag = "A"
+        self.flag = "A"
+        self.conc = None
+        self.weight = None
+        self.w0 = None
+        self.emf0 = None
 
     @property
     def k(self):
@@ -292,10 +296,15 @@ class SW(Solution):
 
 class Titrant(Solution):
 
-    def __init__(self, name: str, concentration: float):
-        self.name = name
+    def __init__(
+        self,
+        id: str,
+        concentration: float,
+        ionic_strength: float,
+    ):
+        self.name = id
         self.concentration = concentration
-        self.weight = list()
+        self.ionic_strength = ionic_strength
 
     @property
     def density(self):
@@ -311,8 +320,13 @@ class Titrant(Solution):
 
 class Titration:
     def __init__(
-        self, weight: list[float], emf: list[float], temp: Union[float, list[float]]
+        self,
+        weight: list[float],
+        emf: list[float],
+        temp: Union[float, list[float]],
+        titrant: Titrant = None,
     ):
         self.weight = np.array(weight)
         self.emf = np.array(emf)
         self.temp = np.array(temp)
+        self.titrant = titrant

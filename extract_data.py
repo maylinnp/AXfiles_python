@@ -19,9 +19,17 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel("DEBUG")
 
-
-# class Solution(object):
-#     pass
+datatypes = {
+    "time": str,
+    "emf": float,
+    "t_sample": float,
+    "weight": float,
+    "pH_est": float,
+    "volume": float,
+    "t_HCl": float,
+    "t_NaOH": float,
+    "t_air": float,
+}
 
 
 # TODO make a class that has all these methods in the generic form,
@@ -55,70 +63,65 @@ def titration_data(filename: str, burette_id: str = "dosimat 12"):
                 break
             else:
                 fwd_data.append(row)
+        if fwd_data:
+            # get titrant data
+            HCl_conc, HCl_I = get_concentration_ionicstrength("HCl", HCl_id)
+            HCl_titrant = Titrant(HCl_id, HCl_conc, HCl_I)
+            # maps the column data, assuming the order of types in datatypes
+            fwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*fwd_data))))
+            # type cast
+            fwd_typecast = {
+                key: [datatypes[key](value) for value in values]
+                for key, values in fwd_data_processed.items()
+            }
+            HCl_vol_burette_corrected = correct_burette_volume(
+                burette_id, fwd_typecast["volume"]
+            )
+            HCl_weights = v_to_w(
+                HCl_vol_burette_corrected,
+                fwd_typecast["t_HCl"],
+                "HCl",
+                HCl_id,
+            )
+            titration_emf = fwd_typecast["emf"]
+            titration_temp = fwd_typecast["t_sample"]
+            HCl_titration_data = Titration(
+                HCl_weights, titration_emf, titration_temp, HCl_titrant
+            )
+
         if "bwd_data" in locals():
             for row in csvreader:
                 bwd_data.append(row)
+        if bwd_data:
+            NaOH_conc, NaOH_I = get_concentration_ionicstrength("NaOH", NaOH_id)
+            NaOH_titrant = Titrant(NaOH_id, NaOH_conc, NaOH_I)
+            # maps the column data, assuming the order of types in datatypes
+            bwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*bwd_data))))
+            # type cast
+            bwd_typecast = {
+                key: [datatypes[key](value) for value in values]
+                for key, values in bwd_data_processed.items()
+            }
+            NaOH_vol_burette_corrected = correct_burette_volume(
+                burette_id, bwd_typecast["volume"]
+            )
+            NaOH_weights = v_to_w(
+                NaOH_vol_burette_corrected,
+                bwd_typecast["t_NaOH"],
+                "NaOH",
+                NaOH_id,
+            )
+            titration_emf = bwd_typecast["emf"]
+            titration_temp = bwd_typecast["t_sample"]
+            NaOH_titration_data = Titration(
+                NaOH_weights, titration_emf, titration_temp, NaOH_titrant
+            )
 
     # flag sample as Q (questionable) if temperature very out of range
     if t0 < 15 or t0 > 30:
         sample.flag = "Q"
 
-    # check if batch and concentration agree
-    titrant.concentration = float(sample_info[4])
-    # TODO problem with titrant and id assignement here, plus concnetration is just approx and will be overwritten by calibration
-    HCl_aliquot.concentration = float(sample_info[5])
-
-    datatypes = {
-        "time": str,
-        "emf": float,
-        "t_sample": float,
-        "weight": float,
-        "pH_est": float,
-        "volume": float,
-        "t_HCl": float,
-        "t_NaOH": float,
-        "t_air": float,
-    }
-
-    # process and pivot
-    if fwd_data:
-        # make dict of data
-        fwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*fwd_data))))
-        # type cast
-        fwd_typecast = {
-            key: [datatypes[key](value) for value in values]
-            for key, values in fwd_data_processed.items()
-        }
-        HCl_aliquot.weight = fwd_typecast["weight"][0] / 1000
-
-    else:
-        raise DataMissing(f"There is no HCl data in {filename}, unable to proceed.")
-        # TODO maybe if there are enough files ahead of it, use all of them and don't count the last one, but I can't keep going bc
-        # need this data for the rest to be valid
-
-    if BWD_data:
-        BWD_data_processed = dict(zip(datatypes.keys(), map(list, zip(*BWD_data))))
-        # type cast
-        BWD_typecast = {
-            key: [datatypes[key](value) for value in values]
-            for key, values in BWD_data_processed.items()
-        }
-        # take burette name, read in burette_density, grab formula
-        volume_corrected = correct_burette_volume(burette_id, BWD_typecast["volume"])
-
-        titration_weights = v_to_w(
-            volume_corrected, BWD_typecast["t_NaOH"], "NaOH", titrant.ID
-        )
-    else:
-        raise TitrantDataMissing(
-            f"There is no NaOH data in {filename}, unable to proceed."
-        )
-
-    titration_emf = BWD_typecast["emf"]
-    titration_temp = BWD_typecast["t_sample"]
-    titration_data = Titration(titration_weights, titration_emf, titration_temp)
-
-    return titrant, sample, HCl_aliquot, titration_data
+    return sample, HCl_titration_data, NaOH_titration_data
 
 
 def NaOH_calibration_data(
@@ -129,7 +132,7 @@ def NaOH_calibration_data(
 ) -> tuple[Solution, Solution, Solution, Titration]:
     HCl_aliquot = Solution()
 
-    FWD_data = list()
+    fwd_data = list()
     # # Open filename and extract data
     with open(filename, "r") as datafile:
         csvreader = csv.reader(datafile)
@@ -149,81 +152,64 @@ def NaOH_calibration_data(
         if not titrant:
             titrant = Solution()
             if sample_info[6]:
-                titrant.ID = sample_info[6].split("-")[0]
-                # TODO missing batch/bag number
+                titrant.id = sample_info[6].split("-")[0]
             else:
-                titrant.ID = "nan"
-            # TODO how does it get the HCl concentration
-            # HCl_batch = sample_info[7].split("-")[0]
+                titrant.id = "nan"
 
         # check if FWD
         for row in csvreader:
             if "BWD" in row:
-                BWD_data = list()
+                bwd_data = list()
                 break
             else:
-                FWD_data.append(row)
-        if "BWD_data" in locals():
+                fwd_data.append(row)
+        if "bwd_data" in locals():
             for row in csvreader:
-                BWD_data.append(row)
+                bwd_data.append(row)
 
     t0 = float(sample_info[3])
     # flag sample as Q (questionable) if temperature very out of range
     if t0 < 15 or t0 > 30:
         sample.flag = "Q"
 
-    titrant.concentration = float(sample_info[4])
-    # TODO problem with titrant and id assignement here, plus concnetration is just approx and will be overwritten by calibration
-    HCl_aliquot.concentration = float(sample_info[5])
-
-    datatypes = {
-        "time": str,
-        "emf": float,
-        "t_sample": float,
-        "weight": float,
-        "pH_est": float,
-        "volume": float,
-        "t_HCl": float,
-        "t_NaOH": float,
-        "t_air": float,
-    }
+    HCl_aliquot.conc = float(sample_info[5])
 
     # process and pivot
-    if FWD_data:
+    if fwd_data:
         # make dict of data
-        FWD_data_processed = dict(zip(datatypes.keys(), map(list, zip(*FWD_data))))
+        fwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*fwd_data))))
         # type cast
-        FWD_typecast = {
+        fwd_typecast = {
             key: [datatypes[key](value) for value in values]
-            for key, values in FWD_data_processed.items()
+            for key, values in fwd_data_processed.items()
         }
-        HCl_aliquot.weight = FWD_typecast["weight"][0] / 1000
+        HCl_aliquot.weight = fwd_typecast["weight"][0] / 1000
 
     else:
         raise DataMissing(f"There is no HCl data in {filename}, unable to proceed.")
         # TODO maybe if there are enough files ahead of it, use all of them and don't count the last one, but I can't keep going bc
         # need this data for the rest to be valid
 
-    if BWD_data:
-        BWD_data_processed = dict(zip(datatypes.keys(), map(list, zip(*BWD_data))))
+    if bwd_data:
+        bwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*bwd_data))))
         # type cast
-        BWD_typecast = {
+        bwd_typecast = {
             key: [datatypes[key](value) for value in values]
-            for key, values in BWD_data_processed.items()
+            for key, values in bwd_data_processed.items()
         }
         # take burette name, read in burette_density, grab formula
-        volume_corrected = correct_burette_volume(burette_id, BWD_typecast["volume"])
+        volume_corrected = correct_burette_volume(burette_id, bwd_typecast["volume"])
 
         titration_weights = v_to_w(
-            volume_corrected, BWD_typecast["t_NaOH"], "NaOH", titrant.ID
+            volume_corrected, bwd_typecast["t_NaOH"], "NaOH", titrant.id
         )
     else:
         raise TitrantDataMissing(
             f"There is no NaOH data in {filename}, unable to proceed."
         )
 
-    titration_emf = BWD_typecast["emf"]
-    titration_temp = BWD_typecast["t_sample"]
+    titration_emf = bwd_typecast["emf"]
+    titration_temp = fwd_typecast["t_sample"]
     titration_data = Titration(titration_weights, titration_emf, titration_temp)
 
     return titrant, sample, HCl_aliquot, titration_data

@@ -125,7 +125,7 @@ class CalibrateNaOH:
         equivalence_weight = -slope / intercept
         NaOH_conc_est = (
             equivalence_weight
-            * HCl_aliquot.concentration
+            * HCl_aliquot.conc
             * (HCl_aliquot.weight - HCl_neutr_weight)
         )
         logger.info(
@@ -136,7 +136,7 @@ class CalibrateNaOH:
         HCl_neutr_weight = (
             (titration_data.weight[-1] - (-intercept / slope))
             * NaOH_conc_est
-            / HCl_aliquot.concentration
+            / HCl_aliquot.conc
         )
         # estimate E0 from the data for better estimates next round(s)
         # E0 = E - k*log(concentration) at each titration point
@@ -144,10 +144,7 @@ class CalibrateNaOH:
             titration_data.emf[: len(F1_gran)]
             - self.sample.k
             * np.log(
-                (
-                    HCl_aliquot.weight * HCl_aliquot.concentration
-                    - F1_weight * NaOH_conc_est
-                )
+                (HCl_aliquot.weight * HCl_aliquot.conc - F1_weight * NaOH_conc_est)
                 / (self.sample.w0 + F1_weight)
             )
         )
