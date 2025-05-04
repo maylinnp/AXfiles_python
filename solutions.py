@@ -36,6 +36,11 @@ class Solution:
         self.weight = None
         self.w0 = None
         self.emf0 = None
+        self.rho = 1
+
+    @property
+    def m0(self):
+        return self.w0 * ((1 - (0.0012013 / 8)) / (1 - (0.0012013 / self.rho)))
 
     @property
     def k(self):
@@ -73,9 +78,10 @@ class Solution:
 class NaCl(Solution):
 
     def __init__(self, concentration: float = None):
+        super().__init__("NaCl")
         self.c = concentration
         self.I = self.c  # calculate from concentration
-        super().__init__("NaCl")
+
         # assume these have not been added
         self.ST = 0
         self.FT = 0
@@ -110,9 +116,10 @@ class NaCl(Solution):
 class KCl(Solution):
 
     def __init__(self, concentration: float = None):
+        super().__init__("KCl")
         self.c = concentration
         self.I = self.c  # calculate from concentration
-        super().__init__("KCl")
+
         # assume these have not been added
         self.ST = 0
         self.FT = 0
@@ -147,9 +154,10 @@ class KCl(Solution):
 class SW(Solution):
 
     def __init__(self, salinity: float = 35):
+        super().__init__("SW")
         self.S = salinity
         self.I = self.S  # calculate from concentration
-        super().__init__("SW")
+        self.rho = 1.027  # calculate from salinity
 
     @property
     def KW(self):
