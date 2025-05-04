@@ -35,7 +35,9 @@ datatypes = {
 # TODO make a class that has all these methods in the generic form,
 # Then child classes that have extra specific methods
 # and use other custom classes to hold the final data so that they don't have anyhting else
-def titration_data(filename: str, burette_id: str = "dosimat 12"):
+def titration_data(
+    filename: str, burette_id: str = "dosimat 12"
+) -> tuple[Solution, Titration, Titration]:
     # assumes calibration solution type found in file name
     if "nacl" in filename.lower():
         sample = NaCl()
@@ -66,7 +68,7 @@ def titration_data(filename: str, burette_id: str = "dosimat 12"):
         if fwd_data:
             # get titrant data
             HCl_conc, HCl_I = get_concentration_ionicstrength("HCl", HCl_id)
-            HCl_titrant = Titrant(HCl_id, HCl_conc, HCl_I)
+            HCl_titrant = Titrant("HCl", HCl_id, HCl_conc, HCl_I)
             # maps the column data, assuming the order of types in datatypes
             fwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*fwd_data))))
             # type cast
@@ -94,7 +96,7 @@ def titration_data(filename: str, burette_id: str = "dosimat 12"):
                 bwd_data.append(row)
         if bwd_data:
             NaOH_conc, NaOH_I = get_concentration_ionicstrength("NaOH", NaOH_id)
-            NaOH_titrant = Titrant(NaOH_id, NaOH_conc, NaOH_I)
+            NaOH_titrant = Titrant("NaOH", NaOH_id, NaOH_conc, NaOH_I)
             # maps the column data, assuming the order of types in datatypes
             bwd_data_processed = dict(zip(datatypes.keys(), map(list, zip(*bwd_data))))
             # type cast

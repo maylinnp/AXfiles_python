@@ -298,11 +298,14 @@ class Titrant(Solution):
 
     def __init__(
         self,
+        type: str,
         id: str,
         concentration: float,
         ionic_strength: float,
     ):
-        self.name = id
+        self.type = type
+        self.id = id
+        self.name = self.type + "-" + self.id
         self.concentration = concentration
         self.ionic_strength = ionic_strength
 

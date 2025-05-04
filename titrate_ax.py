@@ -35,7 +35,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-class ProcessAX:
+class TitrateAX:
     def __init__(
         self,
         path: str = None,
@@ -53,12 +53,19 @@ class ProcessAX:
 
     def titrate(self):
         if self.file:
-            titration_files = self.file
+            titration_files = [self.file]
         else:
             titration_files = self._process_inputs()
+        logger.info(f"Number of files slated for processing: {len(titration_files)}")
 
-    def process_titration(self):
-        pass
+        for file in titration_files:
+            self.process_titration(file)
+
+    def process_titration(self, file: str):
+        logger.debug(f"Processing this file now: {file}")
+        sample, HCl_titration_data, NaOH_titration_data = titration_data(file)
+        logger.debug(f"Processing this file now: {file}")
+        print(NaOH_titration_data.titrant.name)
 
     def _process_inputs(self) -> list:
         """
@@ -80,7 +87,7 @@ class ProcessAX:
 
 
 try:
-    titration = ProcessAX(**vars(args))
+    titration = TitrateAX(**vars(args))
 except TypeError as e:
     logger.critical(f"Error in command line inputs: {e}")
     sys.exit(1)
