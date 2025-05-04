@@ -1,4 +1,5 @@
 from pathlib import Path
+import pandas as pd
 
 
 def get_matching_files(folder: str, pattern: str, extension: str) -> list[str]:
@@ -22,3 +23,22 @@ def get_matching_files(folder: str, pattern: str, extension: str) -> list[str]:
             if file.is_file()
         ]
     )
+
+
+def get_system_constant(constant: str) -> float:
+    """
+    Method to get system constant
+
+    Args:
+        constant (str): what constant to get system value for
+
+    Returns:
+        float: value of constant
+
+    """
+    df = pd.read_csv("auxiliary_data/system_constants.csv")
+    row = df[df["constant"] == constant]
+
+    value = float(row["value"].values[0])
+
+    return value

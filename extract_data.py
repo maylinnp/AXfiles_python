@@ -90,6 +90,8 @@ def titration_data(
             HCl_titration_data = Titration(
                 HCl_weights, titration_emf, titration_temp, HCl_titrant
             )
+        else:
+            HCl_titration_data = None
 
         if "bwd_data" in locals():
             for row in csvreader:
@@ -118,6 +120,8 @@ def titration_data(
             NaOH_titration_data = Titration(
                 NaOH_weights, titration_emf, titration_temp, NaOH_titrant
             )
+        else:
+            NaOH_titration_data = None
 
     # flag sample as Q (questionable) if temperature very out of range
     if t0 < 15 or t0 > 30:

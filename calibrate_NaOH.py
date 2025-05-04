@@ -8,7 +8,7 @@ from solutions import *
 import math
 import numpy as np
 from scipy.stats import linregress
-from maths import Gran_F1
+from ax_maths import Gran_F1
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

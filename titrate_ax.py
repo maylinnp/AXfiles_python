@@ -8,6 +8,7 @@ from solutions import *
 import math
 import numpy as np
 from scipy.stats import linregress
+from ax_maths import *
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -62,10 +63,39 @@ class TitrateAX:
             self.process_titration(file)
 
     def process_titration(self, file: str):
-        logger.debug(f"Processing this file now: {file}")
+        logger.debug(f"Processing this file now: {file}.")
         sample, HCl_titration_data, NaOH_titration_data = titration_data(file)
-        logger.debug(f"Processing this file now: {file}")
-        print(NaOH_titration_data.titrant.name)
+        logger.debug(f"{file} successfully processed.")
+
+        # nutrients and constants already in Sample()
+        # CT after degas also in sample
+        # find index for good fwd titration data
+        HCl_titr_good_indices = find_data_in_range(3, 3.5, HCl_titration_data.pH_est)
+        # estimate E0 and AT from fwd
+        HCl_mass = HCl_titration_data.weight[HCl_titr_good_indices]
+        emf = HCl_titration_data.emf[HCl_titr_good_indices]
+        T = np.mean(HCl_titration_data.T[HCl_titr_good_indices])
+
+        estimate_AT_E0(
+            HCl_mass, emf, T, sample.m0, HCl_titration_data.titrant.concentration
+        )
+
+        idx2 = "AT titration range for bwd 3-3.5"
+        idx3 = "KW titration range during bwd, 9-10.5"
+        # set curve settings
+        curve_options = optimset(
+            "TolX",
+            1e-32,
+            "TolFun",
+            1e-32,
+            "Display",
+            "off",
+            "Algorithm",
+            "levenberg-marquardt",
+        )
+
+    def fwd_titration(self, titration_data: Titration, sample):
+        pass
 
     def _process_inputs(self) -> list:
         """

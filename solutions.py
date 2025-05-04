@@ -1,14 +1,18 @@
 # base class for any solution
 from statistics import mean
-from math import exp, log
+from math import exp, log, log10
 from typing import Union
 import numpy as np
+from util import *
+from ax_maths import k_boltz
 
 
 # TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
 # including temperature or adding stuff so that volume and concentartion and ionic strength/salinity changes
 # TODO add all constants to all relevant solutions
 # TODO check if I am able to calc stuff on the fly by supplying a new temperature
+
+# TODO implement all constants for all solutions (or void options)
 
 
 class Solution:
@@ -37,6 +41,9 @@ class Solution:
         self.w0 = None
         self.emf0 = None
         self.rho = 1
+        self.CT_degas = 2.5e-6
+        self.SiT = 1e-6
+        self.PT = 0e-6
 
     @property
     def m0(self):
@@ -73,6 +80,12 @@ class Solution:
         C = -6.0346 * m**0.5
         pK2 = -122.4994 + 5811.18 / self.T + 20.5263 * log(self.T) - 0.0120897 * self.T
         return 10 ** -(A + B / self.T + C * log(self.T) + pK2)
+
+    def nutrient(self):
+        # TODO maybe a way to get nutrient concentration is if solution is identified
+        # by some name, and if that name is found in nutrients then give value, else
+        # nutrients are 0 (i.e., "any")
+        pass
 
 
 class NaCl(Solution):
@@ -158,6 +171,9 @@ class SW(Solution):
         self.S = salinity
         self.I = self.S  # calculate from concentration
         self.rho = 1.027  # calculate from salinity
+        self.CT_degas = 4e-6
+        self.SiT = 5e-6
+        self.PT = 0.5e-6
 
     @property
     def KW(self):
@@ -338,6 +354,13 @@ class Titration:
         titrant: Titrant = None,
     ):
         self.weight = np.array(weight)
+        # TODO option to give back mass/air buoyancy corrected, will depend on titrant characteristics
         self.emf = np.array(emf)
-        self.temp = np.array(temp)
+        if mean(temp) < 100:
+            self.t = np.array(temp)
+            self.T = self.t + 273.15
         self.titrant = titrant
+        # estimate pH from system constnats
+        E0 = get_system_constant("E0")
+        k = k_boltz(np.mean(self.T))
+        self.pH_est = -np.log10(np.exp((self.emf - E0) / k))
