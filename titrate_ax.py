@@ -9,6 +9,7 @@ import math
 import numpy as np
 from scipy.stats import linregress
 from ax_maths import *
+from functools import partial
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -76,10 +77,19 @@ class TitrateAX:
         emf = HCl_titration_data.emf[HCl_titr_good_indices]
         T = np.mean(HCl_titration_data.T[HCl_titr_good_indices])
 
-        estimate_AT_E0(
+        AT_est_fwd, E0_est_fwd = estimate_AT_E0(
             HCl_mass, emf, T, sample.m0, HCl_titration_data.titrant.concentration
         )
 
+        residual_function = partial(
+            AT_residuals, **{"sample": sample, "titration": HCl_titration_data}
+        )
+        x0 = [1, AT_est_fwd]
+
+        result = least_squares(residual_function, x0, method="dogbox")
+        f_solved, AT_solved = result.x
+        print(f"f = {f_solved:.6f}, AT = {AT_solved:.6f}")
+        return
         idx2 = "AT titration range for bwd 3-3.5"
         idx3 = "KW titration range during bwd, 9-10.5"
         # set curve settings
