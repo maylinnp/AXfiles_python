@@ -13,6 +13,8 @@ from ax_maths import k_boltz
 # TODO check if I am able to calc stuff on the fly by supplying a new temperature
 
 # TODO implement all constants for all solutions (or void options)
+salinity_aliases = ["salinity", "s", "sal"]
+ionic_strength_aliases = ["ionic strength", "i", "ionic", "ionic_strength"]
 
 
 class Solution:
@@ -21,13 +23,21 @@ class Solution:
     def __init__(
         self,
         type: str = "solution",
-        salt: float = 0,
+        salt_value: float = 0,
+        salt_type: str = "salinity",
         temp: float = 20,
         id: str = None,
     ):
         self.type = type
-        self.salt = salt
         self.id = id
+        # parse salt
+        if salt_type.lower() in salinity_aliases:
+            self.S = salt_value
+            self.I = 19.924 * self.S / (1000 - 1.005 * self.S)
+        elif salt_type.lower() in ionic_strength_aliases:
+            self.I = salt_value
+            self.S = 1000 * self.I / (1.005 * self.I + 19.924)
+        # parse temp
         if temp > 200:
             self.T = temp
             self.t = self.T - 273.15
@@ -54,6 +64,11 @@ class Solution:
         return 8.31451 * self.T / 96484.56
 
     @property
+    def KW(self):
+        return 10 ^ -14
+
+    # K1 and K2 is assumed very similar in NaCl and KCl, only property of ionic strength
+    @property
     def K1(self):
         # i is the ionic strength that is presumed to be a property of the solution using this version of K1
         # by necessity on H+(free)
@@ -71,7 +86,7 @@ class Solution:
         return 10 ** -(A + B / self.T + C * log(self.T) + pK1)
 
     @property
-    def K2(self, T=293):
+    def K2(self):
         # i is the ionic strength that is presumed to be a property of the solution using this version of K1
         # by necessity on H+(free)
         m = self.I * 1000 / (1000 - self.I * (22.99 + 35.45))
@@ -85,6 +100,42 @@ class Solution:
         # TODO maybe a way to get nutrient concentration is if solution is identified
         # by some name, and if that name is found in nutrients then give value, else
         # nutrients are 0 (i.e., "any")
+        pass
+
+    @property
+    def KS(self):
+        pass
+
+    @property
+    def KF(self):
+        pass
+
+    @property
+    def KB(self):
+        pass
+
+    @property
+    def KSi(self):
+        pass
+
+    @property
+    def KP1(self):
+        pass
+
+    @property
+    def KP2(self):
+        pass
+
+    @property
+    def KP3(self):
+        pass
+
+    @property
+    def KNH4(self):
+        pass
+
+    @property
+    def KNO2(self):
         pass
 
 
@@ -166,10 +217,12 @@ class KCl(Solution):
 
 class SW(Solution):
 
-    def __init__(self, salinity: float = 35):
-        super().__init__("SW")
-        self.S = salinity
-        self.I = self.S  # calculate from concentration
+    def __init__(
+        self,
+        salt_value: float = 33.5,
+        salt_type: str = "salinity",
+    ):
+        super().__init__("SW", salt_value=salt_value, salt_type="salinity")
         self.rho = 1.027  # calculate from salinity
         self.CT_degas = 4e-6
         self.SiT = 5e-6
@@ -222,16 +275,16 @@ class SW(Solution):
         if ratio > 1:
             raise Exception("Ratio for BT/S cannot be above 1.")
         if BTrat.lower() == "uppstrom":
-            return self.BT_uppstrom()
+            return self._BT_uppstrom()
         elif BTrat.lower() == "lee":
-            return self.BT_lee()
+            return self._BT_lee()
         elif BTrat.lower() == "mix":
-            return self.BT_lee() * ratio + self.BT_uppstrom() * (1 - ratio)
+            return self._BT_lee() * ratio + self._BT_uppstrom() * (1 - ratio)
 
-    def BT_uppstrom(self):
+    def _BT_uppstrom(self):
         return 0.000232 / 10.811 * self.S / 1.80655
 
-    def BT_lee(self):
+    def _BT_lee(self):
         return 0.0002414 / 10.811 * self.S / 1.80655
 
     @property

@@ -49,10 +49,9 @@ def estimate_AT_E0(
     mass_eq = -gran_data.intercept / gran_data.slope
     k = k_boltz(T)
     titrant_moles = titrant_conc * (titrant_mass - mass_eq)
-    E0_est = emf - k * np.log(titrant_moles / (m0 + titrant_mass))
+    E0_est = np.mean(emf - k * np.log(titrant_moles / (m0 + titrant_mass)))
     H_est = np.exp((emf - np.mean(E0_est)) / k)
     AT_est = mass_eq * titrant_conc / m0
-    print(f"Estimated total alkalinity: {AT_est*1e6} umol/kg and E0: {E0_est} V")
     return AT_est, E0_est
 
 
@@ -65,7 +64,7 @@ def AT_residuals(x, sample, titration):
     KW = sample.KW
     CHCl = titration.titrant.concentration
     m = titration.weight
-    H = 10 ^ -(titration.pH_est)
+    H = 10 ** -(titration.pH_est)
     f, AT = x
     Z = 1 + ST / KS
     HSO4 = m0 + ST / (1 + (Z * KS) / (f * H))
@@ -73,4 +72,4 @@ def AT_residuals(x, sample, titration):
     residual = (
         m0 * AT + HSO4 + HF - m * CHCl + (m0 + m) * ((f * H / Z) - (Z * KW / (f * H)))
     )
-    return [residual]
+    return residual

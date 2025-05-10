@@ -42,7 +42,7 @@ class TitrateAX:
         self,
         path: str = None,
     ):
-        logger.info("Let's measure AX!!!\n\n")
+        logger.info("Let's measure AX!!!\n")
         # initialize
         if os.path.isfile(path):
             logger.info(f"Processing single file {path}")
@@ -52,6 +52,8 @@ class TitrateAX:
             logger.info(f"Processing all AX files in direcyory {path}")
             self.file = None
             self.path = path
+        else:
+            raise FileNotFoundError(f"Check the provided path: {path}")
 
     def titrate(self):
         if self.file:
@@ -66,7 +68,7 @@ class TitrateAX:
     def process_titration(self, file: str):
         logger.debug(f"Processing this file now: {file}.")
         sample, HCl_titration_data, NaOH_titration_data = titration_data(file)
-        logger.debug(f"{file} successfully processed.")
+        logger.debug(f"{file} successfully parsed.")
 
         # nutrients and constants already in Sample()
         # CT after degas also in sample
@@ -79,6 +81,9 @@ class TitrateAX:
 
         AT_est_fwd, E0_est_fwd = estimate_AT_E0(
             HCl_mass, emf, T, sample.m0, HCl_titration_data.titrant.concentration
+        )
+        logger.info(
+            f"Estimated total alkalinity: {AT_est_fwd*1e6:.2f} umol/kg and E0: {E0_est_fwd:.4f} V"
         )
 
         residual_function = partial(

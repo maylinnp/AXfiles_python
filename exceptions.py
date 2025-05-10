@@ -2,6 +2,10 @@ class DataMissing(Exception):
     pass
 
 
+class FileMissing(Exception):
+    pass
+
+
 class CalibrationDataMissing(DataMissing):
     pass
 
