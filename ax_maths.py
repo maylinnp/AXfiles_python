@@ -2,7 +2,6 @@ import math
 import numpy as np
 from scipy.stats import linregress
 from collections import namedtuple
-from scipy.optimize import least_squares
 
 
 def Gran_F1(mass: list, emf: list, T: float, m0: float):
@@ -67,9 +66,41 @@ def AT_residuals(x, sample, titration):
     H = 10 ** -(titration.pH_est)
     f, AT = x
     Z = 1 + ST / KS
-    HSO4 = m0 + ST / (1 + (Z * KS) / (f * H))
+    HSO4 = m0 * ST / (1 + (Z * KS) / (f * H))
     HF = m0 * FT / (1 + KF / (f * H))
-    residual = (
-        m0 * AT + HSO4 + HF - m * CHCl + (m0 + m) * ((f * H / Z) - (Z * KW / (f * H)))
-    )
-    return residual
+    term = (f * H / Z) - (Z * KW / (f * H))
+
+    return m0 * AT + HSO4 + HF - m * CHCl + (m0 + m) * term
+
+
+def AT_jacobian(x, sample, titration):
+    ST = sample.ST
+    KS = sample.KS
+    FT = sample.FT
+    KF = sample.KF
+    m0 = sample.m0
+    KW = sample.KW
+    CHCl = titration.titrant.concentration
+    m = titration.weight
+    H = 10 ** -(titration.pH_est)
+    f, AT = x
+    Z = 1 + ST / KS
+
+    # dHSO4/df
+    dHSO4_df = (m0 * ST * (Z * KS) / (H * f**2)) / (1 + (Z * KS) / (f * H)) ** 2
+
+    # dHF/df
+    dHF_df = (m0 * FT * KF / (H * f**2)) / (1 + KF / (f * H)) ** 2
+
+    # dterm/df
+    dterm_df = (H / Z) + (Z * KW) / (f**2 * H)
+
+    # dresidual/df
+    dres_df = dHSO4_df + dHF_df + (m0 + m) * dterm_df
+
+    # dresidual/dAT is just m0 (scalar)
+    dres_dAT = np.full_like(H, m0)
+
+    # Stack into Jacobian matrix: shape (len(H), 2)
+    J = np.column_stack((dres_df, dres_dAT))
+    return J

@@ -11,6 +11,8 @@ from scipy.stats import linregress
 from ax_maths import *
 from functools import partial
 
+from scipy.optimize import least_squares, root
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler()
@@ -86,28 +88,22 @@ class TitrateAX:
             f"Estimated total alkalinity: {AT_est_fwd*1e6:.2f} umol/kg and E0: {E0_est_fwd:.4f} V"
         )
 
-        residual_function = partial(
-            AT_residuals, **{"sample": sample, "titration": HCl_titration_data}
+        result = least_squares(
+            fun=partial(AT_residuals, sample=sample, titration=HCl_titration_data),
+            x0=[1, AT_est_fwd],
+            jac=partial(AT_jacobian, sample=sample, titration=HCl_titration_data),
+            method="lm",
+            xtol=1e-15,
+            ftol=1e-15,
+            gtol=1e-15,
         )
-        x0 = [1, AT_est_fwd]
-
-        result = least_squares(residual_function, x0, method="dogbox")
+        print(result.message)
+        print(result.success)
         f_solved, AT_solved = result.x
-        print(f"f = {f_solved:.6f}, AT = {AT_solved:.6f}")
+        print(f"f = {f_solved:.6f}, AT = {AT_solved*1e6:.6f}")
         return
         idx2 = "AT titration range for bwd 3-3.5"
         idx3 = "KW titration range during bwd, 9-10.5"
-        # set curve settings
-        curve_options = optimset(
-            "TolX",
-            1e-32,
-            "TolFun",
-            1e-32,
-            "Display",
-            "off",
-            "Algorithm",
-            "levenberg-marquardt",
-        )
 
     def fwd_titration(self, titration_data: Titration, sample):
         pass
