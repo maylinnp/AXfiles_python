@@ -69,8 +69,8 @@ def AT_residuals(x, sample, titration):
     HSO4 = m0 * ST / (1 + (Z * KS) / (f * H))
     HF = m0 * FT / (1 + KF / (f * H))
     term = (f * H / Z) - (Z * KW / (f * H))
-
-    return m0 * AT + HSO4 + HF - m * CHCl + (m0 + m) * term
+    residual = m0 * AT + HSO4 + HF - m * CHCl + (m0 + m) * term
+    return residual
 
 
 def AT_jacobian(x, sample, titration):
@@ -80,7 +80,6 @@ def AT_jacobian(x, sample, titration):
     KF = sample.KF
     m0 = sample.m0
     KW = sample.KW
-    CHCl = titration.titrant.concentration
     m = titration.weight
     H = 10 ** -(titration.pH_est)
     f, AT = x

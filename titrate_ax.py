@@ -97,8 +97,8 @@ class TitrateAX:
             ftol=1e-15,
             gtol=1e-15,
         )
-        print(result.message)
-        print(result.success)
+        # The result is a bit higher than the matlab function, needs more optimization
+        # TODO might be issue with my constants, check solution classes
         f_solved, AT_solved = result.x
         print(f"f = {f_solved:.6f}, AT = {AT_solved*1e6:.6f}")
         return
