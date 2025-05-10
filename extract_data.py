@@ -7,6 +7,8 @@
 # the corresponding line recorded (i.e., volume and pH value correspond to
 # eachother).
 import csv
+import re
+import os
 from exceptions import *
 from typing import Union
 import pandas as pd
@@ -50,11 +52,20 @@ def titration_data(
         csvreader = csv.reader(datafile)
         sample_info = next(csvreader)
         sample.w0 = float(sample_info[0]) / 1000
-        sample.salt = float(sample_info[1])
+        if sample.type.lower() == "sw":
+            sample.S = float(sample_info[1])
+        else:
+            sample.I = float(sample_info[1])
         sample.emf0 = float(sample_info[2])
         t0 = float(sample_info[3])
         HCl_id = sample_info[7].split("-")[0]
         NaOH_id = sample_info[6].split("-")[0]
+        # check for nutrient data
+        match = re.match(r"\d{8} ([^-]+)-[A-Za-z]\.csv", os.path.basename(filename))
+        if match:
+            sample.id = match.group(1)
+        else:
+            sample.id = "any"
 
         # check if FWD
         fwd_data = list()
@@ -152,7 +163,8 @@ def NaOH_calibration_data(
                 sample = KCl()
 
             sample.w0 = float(sample_info[0]) / 1000
-            sample.salt = float(sample_info[1])
+            sample.salt_value = float(sample_info[1])
+            sample.salt_type = "ionic strength"
             sample.emf0 = float(sample_info[2])
 
         if not titrant:

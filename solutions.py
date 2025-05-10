@@ -5,6 +5,8 @@ from typing import Union
 import numpy as np
 from util import *
 from ax_maths import k_boltz
+import csv
+import os
 
 
 # TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
@@ -16,6 +18,8 @@ from ax_maths import k_boltz
 salinity_aliases = ["salinity", "s", "sal"]
 ionic_strength_aliases = ["ionic strength", "i", "ionic", "ionic_strength"]
 
+nutrient_path = "auxiliary_data/nutrients.csv"
+
 
 class Solution:
 
@@ -26,17 +30,15 @@ class Solution:
         salt_value: float = 0,
         salt_type: str = "salinity",
         temp: float = 20,
-        id: str = None,
+        id: str = "any",
     ):
         self.type = type
         self.id = id
         # parse salt
         if salt_type.lower() in salinity_aliases:
             self.S = salt_value
-            self.I = 19.924 * self.S / (1000 - 1.005 * self.S)
         elif salt_type.lower() in ionic_strength_aliases:
             self.I = salt_value
-            self.S = 1000 * self.I / (1.005 * self.I + 19.924)
         # parse temp
         if temp > 200:
             self.T = temp
@@ -54,6 +56,34 @@ class Solution:
         self.CT_degas = 2.5e-6
         self.SiT = 1e-6
         self.PT = 0e-6
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        self._id = value
+        # check for nutrients
+        self._look_for_nutrients()
+
+    @property
+    def S(self):
+        return self._S
+
+    @S.setter
+    def S(self, value):
+        self._S = value
+        self._I = 19.924 * value / (1000 - 1.005 * value)
+
+    @property
+    def I(self):
+        return self._I
+
+    @I.setter
+    def I(self, value):
+        self._I = value
+        self._S = 1000 * value / (1.005 * value + 19.924)
 
     @property
     def m0(self):
@@ -138,6 +168,18 @@ class Solution:
     def KNO2(self):
         pass
 
+    def _look_for_nutrients(self):
+        if not os.path.exists(nutrient_path):
+            return
+        with open(nutrient_path, newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            next(reader)
+            for row in reader:
+                if row and row[reader.fieldnames[0]] == self.id:
+                    self.SiT = float(row["silicate"]) * 1e-6
+                    self.PT = float(row["phosphate"]) * 1e-6
+                    break
+
 
 class NaCl(Solution):
 
@@ -219,10 +261,8 @@ class SW(Solution):
 
     def __init__(
         self,
-        salt_value: float = 33.5,
-        salt_type: str = "salinity",
     ):
-        super().__init__("SW", salt_value=salt_value, salt_type="salinity")
+        super().__init__("SW")
         self.rho = 1.027  # calculate from salinity
         self.CT_degas = 4e-6
         self.SiT = 5e-6
@@ -406,11 +446,11 @@ class Titration:
         temp: Union[float, list[float]],
         titrant: Titrant = None,
     ):
-        self.weight = np.array(weight)
+        self.weight = np.array(weight, dtype=np.float64)
         # TODO option to give back mass/air buoyancy corrected, will depend on titrant characteristics
-        self.emf = np.array(emf)
+        self.emf = np.array(emf, dtype=np.float64)
         if mean(temp) < 100:
-            self.t = np.array(temp)
+            self.t = np.array(temp, dtype=np.float64)
             self.T = self.t + 273.15
         self.titrant = titrant
         # estimate pH from system constnats

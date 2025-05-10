@@ -13,6 +13,7 @@ def Gran_F1(mass: list, emf: list, T: float, m0: float):
     )
     k = k_boltz(T)
     F1_all_data = m0 * np.exp(emf / k)
+    # TODO have automatic findig_good_data method instead of hardcoded 100 cutoff
     indices = (0, np.count_nonzero(F1_all_data > 100))
     F1 = F1_all_data[indices[0] : indices[1]]
     F1_mass = mass[indices[0] : indices[1]]

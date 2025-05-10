@@ -106,6 +106,8 @@ class TitrateAX:
         idx3 = "KW titration range during bwd, 9-10.5"
 
     def fwd_titration(self, titration_data: Titration, sample):
+        # This method should essentially give you the AT from data processing
+        # described in Dickson et al. 2003
         pass
 
     def _process_inputs(self) -> list:
