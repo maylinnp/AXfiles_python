@@ -8,6 +8,17 @@ from ax_maths import k_boltz
 import csv
 import os
 
+try:
+    import gsw
+except:
+
+    def SW_rho():
+        return 1.026
+
+    print(
+        "GSW is not installed, will use a simple formula for seawater density if necessary"
+    )
+
 
 # TODO the point of the properties here is that some vlaues can be (re)calculated on the fly when the nsolution changes,
 # including temperature or adding stuff so that volume and concentartion and ionic strength/salinity changes
@@ -52,7 +63,6 @@ class Solution:
         self.weight = None
         self.w0 = None
         self.emf0 = None
-        self.rho = 1
         self.CT_degas = 2.5e-6
         self.SiT = 1e-6
         self.PT = 0e-6
@@ -192,6 +202,7 @@ class NaCl(Solution):
         self.ST = 0
         self.FT = 0
         self.BT = 0
+        self.rho = 1
 
     @property
     def KW(self):
@@ -230,6 +241,7 @@ class KCl(Solution):
         self.ST = 0
         self.FT = 0
         self.BT = 0
+        self.rho = 1
 
     @property
     def KW(self):
@@ -263,7 +275,6 @@ class SW(Solution):
         self,
     ):
         super().__init__("SW")
-        self.rho = 1.027  # calculate from salinity
         self.CT_degas = 4e-6
         self.SiT = 5e-6
         self.PT = 0.5e-6
@@ -410,6 +421,12 @@ class SW(Solution):
             + (-44.99486 / self.T - 0.09984) * self.S
         )
 
+    @property
+    def rho(self):
+        """In g/mL"""
+        absolute_S = self.S  # gsw.SA_from_SP(self.S, 10, 32, -117)
+        return gsw.density.rho(absolute_S, self.t, 0) / 1000
+
 
 class Titrant(Solution):
 
@@ -454,6 +471,13 @@ class Titration:
             self.T = self.t + 273.15
         self.titrant = titrant
         # estimate pH from system constnats
-        E0 = get_system_constant("E0")
-        k = k_boltz(np.mean(self.T))
-        self.pH_est = -np.log10(np.exp((self.emf - E0) / k))
+        self.E0 = get_system_constant("E0")
+        self.k = k_boltz(np.mean(self.T))
+        self.pH_est = -np.log10(np.exp((self.emf - self.E0) / self.k))
+
+    def recalculate_pH(self, new_E0):
+
+        new_pH = self.pH_est + (self.E0 - new_E0) / self.k * log(10)
+        self.E0 = new_E0
+        # TODO probably need some guard here against bad E0 values
+        self.pH_est = new_pH
